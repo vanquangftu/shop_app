@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import './screens/splash_screen.dart';
+import './providers/auth.dart';
 import './screens/edit_product_screen.dart';
 import './screens/user_product_screen.dart';
 import './screens/order_screen.dart';
@@ -9,6 +11,7 @@ import './providers/cart.dart';
 import './providers/products.dart';
 import './screens/product_detail_screen.dart';
 import './screens/products_overview_screen.dart';
+import './screens/auth_screen.dart';
 
 void main() => runApp(MyApp());
 
@@ -18,31 +21,52 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(
-          value: Products(),
+          value: Auth(),
+        ),
+        ChangeNotifierProxyProvider<Auth, Products>(
+          update: (ctx, auth, previousProducts) => Products(
+            previousProducts == null ? [] : previousProducts.items,
+            auth.userId,
+            auth.token,
+          ),
         ),
         ChangeNotifierProvider.value(
           value: Cart(),
         ),
-        ChangeNotifierProvider.value(
-          value: Orders(),
+        ChangeNotifierProxyProvider<Auth, Orders>(
+          update: (ctx, auth, previousOrders) => Orders(
+            previousOrders == null ? [] : previousOrders.order,
+            auth.userId,
+            auth.token,
+          ),
         ),
       ],
-      child: MaterialApp(
-        title: 'MyShop',
-        theme: ThemeData(
-          primarySwatch: Colors.teal,
-          accentColor: Colors.deepOrange,
-          fontFamily: 'Lato',
+      child: Consumer<Auth>(
+        builder: (ctx, auth, child) => MaterialApp(
+          title: 'MyShop',
+          theme: ThemeData(
+            primarySwatch: Colors.teal,
+            accentColor: Colors.deepOrange,
+            fontFamily: 'Lato',
+          ),
+          home: auth.isAuth
+              ? ProductsOverviewScreen()
+              : FutureBuilder(
+                  future: auth.tryAutoLogin(),
+                  builder: (ctx, authResultSnapshot) =>
+                      authResultSnapshot.connectionState ==
+                              ConnectionState.waiting
+                          ? SplashScreen()
+                          : AuthScreen(),
+                ),
+          routes: {
+            ProductDetailScreen.namedRoute: (ctx) => ProductDetailScreen(),
+            CartScreen.namedRoute: (ctx) => CartScreen(),
+            OrderScreen.namedRoute: (ctx) => OrderScreen(),
+            UserProductsScreen.namedRoute: (ctx) => UserProductsScreen(),
+            EditProductScreen.namedRoute: (ctx) => EditProductScreen(),
+          },
         ),
-        // home: ProductsOverviewScreen(),
-        routes: {
-          '/': (ctx) => ProductsOverviewScreen(),
-          ProductDetailScreen.namedRoute: (ctx) => ProductDetailScreen(),
-          CartScreen.namedRoute: (ctx) => CartScreen(),
-          OrderScreen.namedRoute: (ctx) => OrderScreen(),
-          UserProductsScreen.namedRoute: (ctx) => UserProductsScreen(),
-          EditProductScreen.namedRoute: (ctx) => EditProductScreen(),
-        },
       ),
     );
   }
